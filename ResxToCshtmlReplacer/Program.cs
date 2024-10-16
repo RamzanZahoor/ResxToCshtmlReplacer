@@ -28,13 +28,13 @@ namespace ResxToCshtmlReplacer
 
             // Regular expression to match text between HTML tags (excluding attributes and scripts)
             var betweenTagsRegex = new Regex(@">(.*?)<", RegexOptions.Compiled);
-
+            int i = 0;
             // Loop through each entry in the .resx file
             foreach (var entry in resxEntries)
             {
                 // Use regular expression to find matches between HTML tags
                 var matches = betweenTagsRegex.Matches(cshtmlContent);
-
+                
                 foreach (Match match in matches)
                 {
                     string betweenTagsText = match.Groups[1].Value.Trim();  // Extract text between tags
@@ -42,6 +42,7 @@ namespace ResxToCshtmlReplacer
                     // Perform case-sensitive and whole-word comparison
                     if (betweenTagsText == entry.Value)
                     {
+                        i++;
                         string replacement = $"@Localizer[\"{entry.Name}\"]";
                         Console.WriteLine($"Replacing \"{betweenTagsText}\" with {replacement}");
                         //Console.Log($"Replacing \"{betweenTagsText}\" with {replacement}");
@@ -50,8 +51,9 @@ namespace ResxToCshtmlReplacer
                         cshtmlContent = cshtmlContent.Replace($">{betweenTagsText}<", $">{replacement}<");
                     }
                 }
+                
             }
-
+            Console.WriteLine($"Total Keys Replaced: {i}");
             // Save the modified content back to the .cshtml file (or a new file if desired)
             File.WriteAllText(cshtmlFilePath, cshtmlContent);
 
