@@ -10,12 +10,9 @@ namespace ResxToCshtmlReplacer
     {
         static void Main(string[] args)
         {
-            // Specify the paths for the .cshtml file and .resx file.
-            string cshtmlFilePath = @"SampleView.cshtml";
-            string resxFilePath = @"resource.resx";
-
-            // Read the content of the .cshtml file
-            string cshtmlContent = File.ReadAllText(cshtmlFilePath);
+            // Specify the root directory that contains multiple subfolders with .cshtml files
+            string rootFolderPath = @"D:\Views";
+            string resxFilePath = @"SharedResource.en.resx";
 
             // Load and parse the .resx file
             XDocument resxDoc = XDocument.Load(resxFilePath);
@@ -26,38 +23,69 @@ namespace ResxToCshtmlReplacer
                     Value = data.Element("value").Value
                 }).ToList();
 
-            // Regular expression to match text between HTML tags (excluding attributes and scripts)
-            var betweenTagsRegex = new Regex(@">(.*?)<", RegexOptions.Compiled);
-            int i = 0;
-            // Loop through each entry in the .resx file
-            foreach (var entry in resxEntries)
+            // Start the recursive process to handle all folders and .cshtml files
+            ProcessDirectory(rootFolderPath, resxEntries);
+
+            Console.WriteLine("\n====================================================");
+            Console.WriteLine(" Localization replacement completed for all files!");
+            Console.WriteLine("====================================================");
+        }
+
+        static void ProcessDirectory(string folderPath, dynamic resxEntries)
+        {
+            // Get all .cshtml files in the current folder
+            var cshtmlFiles = Directory.GetFiles(folderPath, "*.cshtml");
+            Console.WriteLine("\n****************************************************");
+            Console.WriteLine($" Processing Folder: {folderPath}");
+            Console.WriteLine("****************************************************\n");
+
+            // Process each .cshtml file in the current folder
+            foreach (var cshtmlFilePath in cshtmlFiles)
             {
-                // Use regular expression to find matches between HTML tags
-                var matches = betweenTagsRegex.Matches(cshtmlContent);
-                
-                foreach (Match match in matches)
+                Console.WriteLine($"   -> Processing file: {Path.GetFileName(cshtmlFilePath)}");
+
+                // Read the content of each .cshtml file
+                string cshtmlContent = File.ReadAllText(cshtmlFilePath);
+                int totalReplacements = 0;
+
+                // Loop through each entry in the .resx file
+                foreach (var entry in resxEntries)
                 {
-                    string betweenTagsText = match.Groups[1].Value.Trim();  // Extract text between tags
+                    // Regular expression to match text between HTML tags (excluding attributes and scripts)
+                    var betweenTagsRegex = new Regex(@">(.*?)<", RegexOptions.Compiled);
+                    var matches = betweenTagsRegex.Matches(cshtmlContent);
 
-                    // Perform case-sensitive and whole-word comparison
-                    if (betweenTagsText == entry.Value)
+                    foreach (Match match in matches)
                     {
-                        i++;
-                        string replacement = $"@Localizer[\"{entry.Name}\"]";
-                        Console.WriteLine($"Replacing \"{betweenTagsText}\" with {replacement}");
-                        //Console.Log($"Replacing \"{betweenTagsText}\" with {replacement}");
+                        string betweenTagsText = match.Groups[1].Value.Trim();  // Extract text between tags
 
-                        // Replace the matched text between tags with the Localizer syntax
-                        cshtmlContent = cshtmlContent.Replace($">{betweenTagsText}<", $">{replacement}<");
+                        // Perform case-sensitive and whole-word comparison
+                        if (betweenTagsText == entry.Value)
+                        {
+                            string replacement = $"@Localizer[\"{entry.Name}\"]";
+                            Console.WriteLine($"      Replacing \"{betweenTagsText}\" with {replacement}");
+
+                            // Replace the matched text between tags with the Localizer syntax
+                            cshtmlContent = cshtmlContent.Replace($">{betweenTagsText}<", $">{replacement}<");
+
+                            totalReplacements++;
+                        }
                     }
                 }
-                
-            }
-            Console.WriteLine($"Total Keys Replaced: {i}");
-            // Save the modified content back to the .cshtml file (or a new file if desired)
-            File.WriteAllText(cshtmlFilePath, cshtmlContent);
 
-            Console.WriteLine("Localization replacement completed!");
+                // Save the modified content back to the same .cshtml file
+                File.WriteAllText(cshtmlFilePath, cshtmlContent);
+
+                Console.WriteLine($"   -> Replaced {totalReplacements} entries in {Path.GetFileName(cshtmlFilePath)}");
+                Console.WriteLine("---------------------------------------------------------------------------\n");
+            }
+
+            // Now, process each subdirectory recursively (depth-first search)
+            var subDirectories = Directory.GetDirectories(folderPath);
+            foreach (var subDirectory in subDirectories)
+            {
+                ProcessDirectory(subDirectory, resxEntries);  // Recursive call for subdirectory
+            }
         }
     }
 }
